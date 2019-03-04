@@ -51,26 +51,26 @@ object strings {
     def get( s: State2 ) = s.toString
   }
   implicit object lookupState3 extends Lookup[String, State3, String, Option] {
-    def lookup( c: String, f: String => Option[State3] ) = f( c ).map( s => s"from $c to ${get( s )}" )
+    def lookup( c: String, f: String => Option[State3] ) = f( c ).map( s => s"$c => ${get( s )}" )
     def get( s: State3 ) = s.toString
   }
-  implicit object process extends Process[String, Response] {
-    def process = s => Response( s )
+  implicit object process extends Process[String, String] {
+    def process = s => s"Response for $s"
   }
 }
 
 object program {
   import models._
   import resolver._
-  def graph[S1, S2, S3]( c: Context )(
+  def graph[S1, S2, S3, R]( c: Context )(
     implicit
     L1: Lookup[Context, State1, S1, Option],
     L2: Lookup[Context, State2, S2, Option],
     L3: Lookup[S1, State3, S3, Option],
-    P1: Process[S1, Response],
-    P2: Process[S2, Response],
-    P3: Process[S3, Response]
-  ): Option[Response] = {
+    P1: Process[S1, R],
+    P2: Process[S2, R],
+    P3: Process[S3, R]
+  ): Option[R] = {
     L1.lookup( c, _.dialog.isEmpty.option( State1() ) ) match {
       case Some( s1 ) =>
         L3.lookup( s1, _ => Some( State3() ) ) match {
@@ -86,5 +86,5 @@ object app extends App {
   import models.Context
   import models.values._
   import strings._
-  println( program.graph( Context( users, messages ) ) )
+  println( program.graph( Context( users, Nil ) ) )
 }

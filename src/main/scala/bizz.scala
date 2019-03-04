@@ -23,17 +23,6 @@ trait Lookup[C, I1, I2] {
 trait Process[I, R] {
   def process( i: I ): R
 }
-
-case class User( id: Int )
-case class Message( from: User, content: String )
-case class Context( users: List[User], dialog: List[Message] )
-
-case class State1()
-case class State2()
-case class State3()
-
-case class Response( r: String )
-
 object real {
   implicit object lookup extends Lookup[Context, State1, State2] {
     def lookup( c: Context ) = if ( c.dialog.isEmpty ) Left( State1() ) else Right( State2() )

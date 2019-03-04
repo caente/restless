@@ -95,7 +95,7 @@ object program {
   }
 }
 
-object app extends App {
+object app {
 
   import program._
 

@@ -82,7 +82,7 @@ object program {
   }
 }
 
-object app extends App {
+object app {
   import models.Context
   import models.values._
   import strings._

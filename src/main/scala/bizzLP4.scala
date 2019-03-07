@@ -1,4 +1,4 @@
-package bizz7
+package bizz8
 
 import scalaz.syntax.std.boolean.ToBooleanOpsFromBoolean
 import ammonite.ops._
@@ -88,7 +88,7 @@ object program {
   }
 }
 
-object app {
+object app extends App {
   import models._
   import models.values._
   import states._

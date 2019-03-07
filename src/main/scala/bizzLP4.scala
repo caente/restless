@@ -3,10 +3,6 @@ package bizz8
 import scalaz.syntax.std.boolean.ToBooleanOpsFromBoolean
 import ammonite.ops._
 
-sealed trait Res[A]
-case class Fail[A]() extends Res[A]
-case class Suc[A]( a: A ) extends Res[A]
-
 object resolver {
   trait Resolver[F[_], G[_]] {
     def create[S]( f: G[S] ): F[G[S]]

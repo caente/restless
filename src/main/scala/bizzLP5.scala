@@ -47,7 +47,7 @@ object strings {
   import resolver._
   case class Str[A]( res: String )
   implicit object ResolverStr extends Resolver[Str, Option] {
-    def create[S]( f: () => Option[S] ): Str[() => Option[S]] = Str( s"created(${f()})" )
+    def create[S]( f: () => Option[S] ): Str[() => Option[S]] = Str( s"${f().map( _.toString ).getOrElse( "None" )}" )
     def transition[S, Z]( f: Str[() => Option[S]] )( g: S => Z ): Str[() => Option[Z]] = {
       Str( s"${f.res}" )
     }
@@ -55,7 +55,7 @@ object strings {
       origin:   Str[() => Option[Z]],
       fallback: Str[() => Option[Z]]
     ): Str[() => Option[Z]] = {
-      Str( s"${origin.res} || ${fallback.res}" )
+      Str( s"(${origin.res} || ${fallback.res})" )
     }
   }
 
@@ -110,7 +110,8 @@ object app extends App {
 
   //Str
   val g1Str = program.createSimpleGraph[Str]( context1 )
-  println( "Str1: " + g1Str.res ) // created(Some(State1())) || created(Some(State1())) || created(None)
+  println( "Str1: " + g1Str.res ) // (State1() || (State1() || None))
+
   val g2Str = program.createSimpleGraph[Str]( context2 )
-  println( "Str2: " + g2Str.res ) // created(None) || created(None) || created(Some(State2()))
+  println( "Str2: " + g2Str.res ) // (None || (None || State2()))
 }

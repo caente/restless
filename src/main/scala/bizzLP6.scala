@@ -5,6 +5,7 @@ object resolver {
     def create[C, S]( f: C => G[S] ): F[C, G[S]]
     def transition[C, S, Z]( f: F[C, G[S]] )( g: S => Z ): F[C, G[Z]]
     def choose[C, Z]( origin: F[C, G[Z]], fallback: F[C, G[Z]] ): F[C, G[Z]]
+    def link[C, S1, S2, Z]( s1: F[C, G[S1]], s2: F[C => G[S1], G[C => G[S2]]] ): F[C, G[S2]]
   }
   trait Process[A, R] {
     def process: A => R
@@ -35,6 +36,8 @@ object states {
       Res( c => f.exec( c ).map( g ) )
     def choose[C, Z]( origin: Res[C, Option[Z]], fallback: Res[C, Option[Z]] ) =
       Res( c => origin.exec( c ).orElse( fallback.exec( c ) ) )
+    def link[C, S1, S2, Z]( s1: Res[C, Option[S1]], s2: Res[C => Option[S1], Option[C => Option[S2]]] ): Res[C, Option[S2]] =
+      Res( c => s2.exec( s1.exec ).flatMap( _( c ) ) )
   }
 
 }
@@ -50,6 +53,8 @@ object strings {
       Str( c => s"${f.exec( c )}" )
     def choose[C, Z]( origin: Str[C, Option[Z]], fallback: Str[C, Option[Z]] ) =
       Str( c => s"(${origin.exec( c )} || ${fallback.exec( c )})" )
+    def link[C, S1, S2, Z]( s1: Str[C, Option[S1]], s2: Str[C => Option[S1], Option[C => Option[S2]]] ): Str[C, Option[S2]] =
+      Str( c => s"${s1.exec( c )}->${s2.exec( _ => None )}" )
   }
 }
 
@@ -62,15 +67,24 @@ object program {
     implicit
     L:  Resolver[F, Option],
     P1: Process[State1, Response],
-    P2: Process[State2, Response]
+    P2: Process[State2, Response],
+    P3: Process[State3, Response]
   ): F[Context, Option[Response]] = {
     import L._
     val f1 = ( c: Context ) => c.dialog.isEmpty.option( State1() )
     val f2 = ( c: Context ) => c.dialog.nonEmpty.option( State2() )
+    val f1_3: ( Context => Option[State1] ) => Option[( Context => Option[State3] )] =
+      s1 => Some( c => s1( c ).map( _ => State3() ) )
+    val f3: Context => Option[State3] = ( c: Context ) => Option.empty[State3]
+
     val l1 = transition( create( f1 ) )( P1.process )
+    val l1_3 = transition( link( create( f1 ), create( f1_3 ) ) )( P3.process )
     val l2 = transition( create( f2 ) )( P2.process )
-    val l3 = transition( choose( l1, l2 ) )( identity )
-    choose( l1, l3 )
+    val l3 = transition( create( f3 ) )( P3.process )
+
+    val branch1 = choose( l1_3, l1 )
+    val branch2 = choose( branch1, l2 )
+    choose( branch2, l3 )
   }
 
 }

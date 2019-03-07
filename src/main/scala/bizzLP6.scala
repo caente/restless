@@ -111,7 +111,6 @@ object app extends App {
   //Str
   val g1Str = program.createSimpleGraph[Str].exec( context1 )
   println( "Str1: " + g1Str ) // (State1() || (State1() || None))
-
   val g2Str = program.createSimpleGraph[Str].exec( context2 )
   println( "Str2: " + g2Str ) // (None || (None || State2()))
 }

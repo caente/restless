@@ -10,7 +10,7 @@ case class Suc[A]( a: A ) extends Res[A]
 object resolver {
   trait Resolver[F[_], G[_]] {
     def create[C, S]( f: C => G[S] ): F[C => G[S]]
-    def transition[C, S, Z]( f: F[C => G[S]], g: S => Z ): F[C => G[S => Z]]
+    def transition[C, S, Z]( f: F[C => G[S]] )( g: S => Z ): F[C => G[S => Z]]
     def choose[C, S, S1, S2, Z](
       origin:   F[C => G[S => Z]],
       fallback: F[C => G[S1 => Z]],
@@ -21,14 +21,18 @@ object resolver {
     def process: A => R
   }
 }
-/*
 object states {
   import models._
   import resolver._
-  case class R[A]( unR: A )
-  implicit object lookupState extends Resolver[R, Option] {
-    def lookup[C, S]( f: C => Option[S] ) = R( f )
-    def apply[C, S]( c: C )( f: R[C => Option[S]] ): Option[S] = f.unR( c )
+  case class Res[A]( res: A )
+  implicit object lookupState extends Resolver[Res, Option] {
+    def create[C, S]( f: C => Option[S] ): Res[C => Option[S]] = ???
+    def transition[C, S, Z]( f: Res[C => Option[S]] )( g: S => Z ): Res[C => Option[S => Z]] = ???
+    def choose[C, S, S1, S2, Z](
+      origin:   Res[C => Option[S => Z]],
+      fallback: Res[C => Option[S1 => Z]],
+      next:     Res[C => Option[( S => Option[S2] ) => ( S2 => Z )]]
+    ): Res[C => Option[Z]] = ???
   }
   implicit object process1 extends Process[State1, Response] {
     def process = s => Response( "state1" )
@@ -44,16 +48,21 @@ object states {
 object strings {
   import models._
   import resolver._
-  case class Str[A]( unS: A )
-// implicit object lookupState extends Resolver[Str, Str] {
-//   def lookup[C, S]( f: C => Option[S] ) = Str( f )
-//   def apply[C, S]( c: C )( f: Str[C => Option[S]] ): Option[S] = f.unS( c )
-// }
+  case class Str[A]( str: A )
+  implicit object lookupState extends Resolver[Str, Str] {
+    def create[C, S]( f: C => Str[S] ): Str[C => Str[S]] = ???
+    def transition[C, S, Z]( f: Str[C => Str[S]] )( g: S => Z ): Str[C => Str[S => Z]] = ???
+    def choose[C, S, S1, S2, Z](
+      origin:   Str[C => Str[S => Z]],
+      fallback: Str[C => Str[S1 => Z]],
+      next:     Str[C => Str[( S => Str[S2] ) => ( S2 => Z )]]
+    ): Str[C => Str[Z]] = ???
+  }
   implicit object process extends Process[String, String] {
     def process = s => s"Response for $s"
   }
 }
-*/
+
 object program {
   import models._
   import resolver._
@@ -73,9 +82,9 @@ object program {
     val s1: F[Context => Option[State1]] = L.create( f1 )
     val s2: F[Context => Option[State2]] = L.create( f2 )
     val s3: F[Context => Option[State1 => Option[State3]]] = L.create( f3 )
-    val l1: F[Context => Option[State1 => R]] = L.transition( s1, P1.process )
-    val l2: F[Context => Option[State2 => R]] = L.transition( s2, P2.process )
-    val l3: F[Context => Option[( State1 => Option[State3] ) => ( State3 => R )]] = L.transition( s3, P3.process )
+    val l1: F[Context => Option[State1 => R]] = L.transition( s1 )( P1.process )
+    val l2: F[Context => Option[State2 => R]] = L.transition( s2 )( P2.process )
+    val l3: F[Context => Option[( State1 => Option[State3] ) => ( State3 => R )]] = L.transition( s3 )( P3.process )
     L.choose( l1, l2, l3 )
   }
 }

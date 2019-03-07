@@ -4,10 +4,7 @@ object resolver {
   trait Resolver[F[_, _], G[_]] {
     def create[C, S]( f: C => G[S] ): F[C, G[S]]
     def transition[C, S, Z]( f: F[C, G[S]] )( g: S => Z ): F[C, G[Z]]
-    def choose[C, Z](
-      origin:   F[C, G[Z]],
-      fallback: F[C, G[Z]]
-    ): F[C, G[Z]]
+    def choose[C, Z]( origin: F[C, G[Z]], fallback: F[C, G[Z]] ): F[C, G[Z]]
   }
   trait Process[A, R] {
     def process: A => R
@@ -32,12 +29,12 @@ object states {
   import resolver._
   case class Res[C, A]( exec: C => A )
   implicit object ResolverRes extends Resolver[Res, Option] {
-    def create[C, S]( f: C => Option[S] ): Res[C, Option[S]] = Res( f )
-    def transition[C, S, Z]( f: Res[C, Option[S]] )( g: S => Z ): Res[C, Option[Z]] = Res( c => f.exec( c ).map( g ) )
-    def choose[C, Z](
-      origin:   Res[C, Option[Z]],
-      fallback: Res[C, Option[Z]]
-    ): Res[C, Option[Z]] = Res( c => origin.exec( c ).orElse( fallback.exec( c ) ) )
+    def create[C, S]( f: C => Option[S] ) =
+      Res( f )
+    def transition[C, S, Z]( f: Res[C, Option[S]] )( g: S => Z ) =
+      Res( c => f.exec( c ).map( g ) )
+    def choose[C, Z]( origin: Res[C, Option[Z]], fallback: Res[C, Option[Z]] ) =
+      Res( c => origin.exec( c ).orElse( fallback.exec( c ) ) )
   }
 
 }
@@ -47,16 +44,12 @@ object strings {
   import resolver._
   case class Str[C, A]( exec: C => String )
   implicit object ResolverStr extends Resolver[Str, Option] {
-    def create[C, S]( f: C => Option[S] ): Str[C, Option[S]] = Str( c => s"${f( c ).map( _.toString ).getOrElse( "None" )}" )
-    def transition[C, S, Z]( f: Str[C, Option[S]] )( g: S => Z ): Str[C, Option[Z]] = {
+    def create[C, S]( f: C => Option[S] ) =
+      Str( c => s"${f( c ).map( _.toString ).getOrElse( "None" )}" )
+    def transition[C, S, Z]( f: Str[C, Option[S]] )( g: S => Z ) =
       Str( c => s"${f.exec( c )}" )
-    }
-    def choose[C, Z](
-      origin:   Str[C, Option[Z]],
-      fallback: Str[C, Option[Z]]
-    ): Str[C, Option[Z]] = {
+    def choose[C, Z]( origin: Str[C, Option[Z]], fallback: Str[C, Option[Z]] ) =
       Str( c => s"(${origin.exec( c )} || ${fallback.exec( c )})" )
-    }
   }
 }
 

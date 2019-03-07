@@ -58,39 +58,28 @@ object strings {
       Str( c => s"(${origin.exec( c )} || ${fallback.exec( c )})" )
     }
   }
-
 }
 
 object program {
   import models._
   import resolver._
+  import scalaz.syntax.std.boolean.ToBooleanOpsFromBoolean
+
   def simpleGraph[F[_, _]](
-    f1: Context => Option[State1],
-    f2: Context => Option[State2]
-  )(
     implicit
     L:  Resolver[F, Option],
     P1: Process[State1, Response],
     P2: Process[State2, Response]
   ): F[Context, Option[Response]] = {
     import L._
+    val f1 = ( c: Context ) => c.dialog.isEmpty.option( State1() )
+    val f2 = ( c: Context ) => c.dialog.nonEmpty.option( State2() )
     val l1 = transition( create( f1 ) )( P1.process )
     val l2 = transition( create( f2 ) )( P2.process )
     val l3 = transition( choose( l1, l2 ) )( identity )
     choose( l1, l3 )
   }
 
-  import scalaz.syntax.std.boolean.ToBooleanOpsFromBoolean
-  def createSimpleGraph[F[_, _]](
-    implicit
-    L:  Resolver[F, Option],
-    P1: Process[State1, Response],
-    P2: Process[State2, Response]
-  ) =
-    program.simpleGraph[F](
-      f1 = ( c: Context ) => c.dialog.isEmpty.option( State1() ),
-      f2 = ( c: Context ) => c.dialog.nonEmpty.option( State2() )
-    )
 }
 
 object app extends App {
@@ -103,14 +92,14 @@ object app extends App {
   val context2 = Context( users, messages )
 
   //Res
-  val g1Res = program.createSimpleGraph[Res].exec( context1 )
+  val g1Res = program.simpleGraph[Res].exec( context1 )
   println( "Res1: " + g1Res ) // Some(Response(state1))
-  val g2Res = program.createSimpleGraph[Res].exec( context2 )
+  val g2Res = program.simpleGraph[Res].exec( context2 )
   println( "Res2: " + g2Res ) // Some(Response(state2))
 
   //Str
-  val g1Str = program.createSimpleGraph[Str].exec( context1 )
+  val g1Str = program.simpleGraph[Str].exec( context1 )
   println( "Str1: " + g1Str ) // (State1() || (State1() || None))
-  val g2Str = program.createSimpleGraph[Str].exec( context2 )
+  val g2Str = program.simpleGraph[Str].exec( context2 )
   println( "Str2: " + g2Str ) // (None || (None || State2()))
 }

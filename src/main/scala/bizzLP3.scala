@@ -48,7 +48,7 @@ object states {
 object strings {
   import models._
   import resolver._
-  case class Str[A]( str: A )
+  case class Str[A]( str: String )
   implicit object lookupState extends Resolver[Str, Str] {
     def create[C, S]( f: C => Str[S] ): Str[C => Str[S]] = ???
     def transition[C, S, Z]( f: Str[C => Str[S]] )( g: S => Z ): Str[C => Str[S => Z]] = ???

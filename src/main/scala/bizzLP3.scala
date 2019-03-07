@@ -7,7 +7,7 @@ object resolver {
   trait Resolver[F[_], G[_]] {
     def create[C, S]( f: C => G[S] ): F[C => G[S]]
     def transition[C, S, Z]( f: F[C => G[S]] )( g: S => Z ): F[C => G[Z]]
-    def choose[C, S, S1, S2, Z](
+    def choose[C, Z](
       origin:   F[C => G[Z]],
       fallback: F[C => G[Z]]
     ): F[C => G[Z]]
@@ -24,7 +24,7 @@ object states {
   implicit object lookupState extends Resolver[Res, Option] {
     def create[C, S]( f: C => Option[S] ): Res[C => Option[S]] = Res( f )
     def transition[C, S, Z]( f: Res[C => Option[S]] )( g: S => Z ): Res[C => Option[Z]] = Res( c => f.res( c ).map( g ) )
-    def choose[C, S, S1, S2, Z](
+    def choose[C, Z](
       origin:   Res[C => Option[Z]],
       fallback: Res[C => Option[Z]]
     ): Res[C => Option[Z]] = Res( c => origin.res( c ).orElse( fallback.res( c ) ) )
@@ -50,7 +50,7 @@ object strings {
     def transition[C, S, Z]( f: Str[C => Option[S]] )( g: S => Z ): Str[C => Option[Z]] = {
       Str( s"g(${f.str})" )
     }
-    def choose[C, S, S1, S2, Z](
+    def choose[C, Z](
       origin:   Str[C => Option[Z]],
       fallback: Str[C => Option[Z]]
     ): Str[C => Option[Z]] = {

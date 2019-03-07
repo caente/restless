@@ -1,8 +1,5 @@
 package bizz9
 
-import scalaz.syntax.std.boolean.ToBooleanOpsFromBoolean
-import ammonite.ops._
-
 object resolver {
   trait Resolver[F[_], G[_]] {
     def create[S]( f: () => G[S] ): F[() => G[S]]
@@ -82,6 +79,8 @@ object program {
     val l3 = transition( choose( l1, l2 ) )( identity )
     choose( l1, l3 )
   }
+
+  import scalaz.syntax.std.boolean.ToBooleanOpsFromBoolean
   def createSimpleGraph[F[_]]( c: Context )(
     implicit
     L:  Resolver[F, Option],

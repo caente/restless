@@ -9,12 +9,13 @@ case class Suc[A]( a: A ) extends Res[A]
 
 object resolver {
   trait Resolver[F[_], G[_]] {
-    def create[S]( f: G[S] ): F[G[S]]
-    def transition[S, Z]( f: F[G[S]] )( g: S => Z ): F[G[Z]]
-    def choose[Z](
-      origin:   F[G[Z]],
-      fallback: F[G[Z]]
-    ): F[G[Z]]
+    def create[C, S]( f: C => G[S] ): F[C => G[S]]
+    def transition[C, S, Z]( f: F[C => G[S]] )( g: S => Z ): F[C => G[Z]]
+    def choose[C, S, S1, S2, Z](
+      origin:   F[C => G[Z]],
+      fallback: F[C => G[Z]]
+    ): F[C => G[Z]]
+    def apply[C, Z]( c: C, f: F[C => G[Z]] ): F[G[Z]]
   }
   trait Process[A, R] {
     def process: A => R
@@ -25,12 +26,13 @@ object states {
   import resolver._
   case class Res[A]( res: A )
   implicit object lookupState extends Resolver[Res, Option] {
-    def create[S]( f: Option[S] ): Res[Option[S]] = Res( f )
-    def transition[S, Z]( f: Res[Option[S]] )( g: S => Z ): Res[Option[Z]] = Res( f.res.map( g ) )
-    def choose[Z](
-      origin:   Res[Option[Z]],
-      fallback: Res[Option[Z]]
-    ): Res[Option[Z]] = Res( origin.res.orElse( fallback.res ) )
+    def create[C, S]( f: C => Option[S] ): Res[C => Option[S]] = Res( f )
+    def transition[C, S, Z]( f: Res[C => Option[S]] )( g: S => Z ): Res[C => Option[Z]] = Res( c => f.res( c ).map( g ) )
+    def choose[C, S, S1, S2, Z](
+      origin:   Res[C => Option[Z]],
+      fallback: Res[C => Option[Z]]
+    ): Res[C => Option[Z]] = Res( c => origin.res( c ).orElse( fallback.res( c ) ) )
+    def apply[C, Z]( c: C, f: Res[C => Option[Z]] ): Res[Option[Z]] = Res( f.res( c ) )
   }
   implicit object process1 extends Process[State1, Response] {
     def process = s => Response( "state1" )
@@ -48,15 +50,18 @@ object strings {
   import resolver._
   case class Str[A]( str: String )
   implicit object lookupState extends Resolver[Str, Option] {
-    def create[S]( f: Option[S] ): Str[Option[S]] = Str( f.toString )
-    def transition[S, Z]( f: Str[Option[S]] )( g: S => Z ): Str[Option[Z]] = {
-      Str( s"${f.str}=>Z" )
+    def create[C, S]( f: C => Option[S] ): Str[C => Option[S]] = Str( "created" )
+    def transition[C, S, Z]( f: Str[C => Option[S]] )( g: S => Z ): Str[C => Option[Z]] = {
+      Str( s"g(${f.str})" )
     }
-    def choose[Z](
-      origin:   Str[Option[Z]],
-      fallback: Str[Option[Z]]
-    ): Str[Option[Z]] = {
-      Str( s"(${origin.str} || ${fallback.str})" )
+    def choose[C, S, S1, S2, Z](
+      origin:   Str[C => Option[Z]],
+      fallback: Str[C => Option[Z]]
+    ): Str[C => Option[Z]] = {
+      Str( s"${origin.str} || ${fallback.str}" )
+    }
+    def apply[C, Z]( c: C, f: Str[C => Option[Z]] ): Str[Option[Z]] = {
+      Str( s"${f.str}(c)" )
     }
   }
   implicit object process2 extends Process[State1, Response] {
@@ -71,9 +76,9 @@ object program {
   import models._
   import resolver._
   import scalaz._, Scalaz._
-  def graph[F[_]](
-    f1: Option[State1],
-    f2: Option[State2]
+  def graph[F[_]]( c: Context )(
+    f1: Context => Option[State1],
+    f2: Context => Option[State2]
   )(
     implicit
     L:  Resolver[F, Option],
@@ -84,18 +89,18 @@ object program {
     val l1 = transition( create( f1 ) )( P1.process )
     val l2 = transition( create( f2 ) )( P2.process )
     val l3 = transition( choose( l1, l2 ) )( identity )
-    choose( l1, l3 )
+    val choice = choose( l1, l3 )
+    apply( c, choice )
   }
 }
 
-object app {
+object app extends App {
   import models._
   import models.values._
-  import states._
-  val context = Context( users, Nil )
-  val g = program.graph(
-    context.dialog.isEmpty.option( State1() ),
-    context.dialog.nonEmpty.option( State2() )
+  import strings._
+  val g = program.graph( Context( users, messages ) )(
+    f1 = _.dialog.isEmpty.option( State1() ),
+    f2 = _.dialog.nonEmpty.option( State2() )
   )
   println( g )
 }

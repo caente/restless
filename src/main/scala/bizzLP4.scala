@@ -48,15 +48,15 @@ object strings {
   import resolver._
   case class Str[A]( str: String )
   implicit object lookupState extends Resolver[Str, Option] {
-    def create[S]( f: Option[S] ): Str[Option[S]] = Str( f.toString )
+    def create[S]( f: Option[S] ): Str[Option[S]] = Str( s"created(${f})" )
     def transition[S, Z]( f: Str[Option[S]] )( g: S => Z ): Str[Option[Z]] = {
-      Str( s"${f.str}=>Z" )
+      Str( s"g(${f.str})" )
     }
     def choose[Z](
       origin:   Str[Option[Z]],
       fallback: Str[Option[Z]]
     ): Str[Option[Z]] = {
-      Str( s"(${origin.str} || ${fallback.str})" )
+      Str( s"${origin.str} || ${fallback.str}" )
     }
   }
   implicit object process2 extends Process[State1, Response] {
@@ -88,10 +88,10 @@ object program {
   }
 }
 
-object app extends App {
+object app {
   import models._
   import models.values._
-  import states._
+  import strings._
   val context = Context( users, Nil )
   val g = program.graph(
     context.dialog.isEmpty.option( State1() ),

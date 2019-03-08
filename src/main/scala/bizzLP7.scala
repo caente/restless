@@ -89,7 +89,9 @@ object program {
     val l1_3 = create( f1 ).flatMap( create( f1_3 ) ).map( P3.process )
     val l2 = create( f2 ).map( P2.process )
     val l3 = create( f3 ).map( P3.process )
-
+    //all lx are of the same type F[Context,Option[Response]]
+    //the below can be combined in any way, e.g.
+    //l1_3.fallbackWith( l1.fallbackWith( l2.fallbackWith( l3 ) ) )
     l1_3
       .fallbackWith( l1 )
       .fallbackWith( l2 )

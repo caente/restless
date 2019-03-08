@@ -89,7 +89,7 @@ object program {
 
 }
 
-object app extends App {
+object app {
   import models._
   import models.values._
   import strings._

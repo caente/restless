@@ -4,7 +4,7 @@ case class User( id: Int )
 case class Message( from: User, content: String )
 case class Context( users: List[User], dialog: List[Message] )
 
-case class State1()
+case class State1( usersEmpty: Boolean )
 case class State2()
 case class State3()
 

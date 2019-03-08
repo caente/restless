@@ -58,9 +58,18 @@ object strings {
   }
 }
 
+object syntax {
+  import resolver._
+  implicit class ResolverSyntax[F[_, _], G[_], C, S]( f: F[C, G[S]] ) {
+    def map[Z]( g: S => Z )( implicit R: Resolver[F, G] ): F[C, G[Z]] = R.map( f )( g )
+    def flatMap[S2, Z]( s2: F[S, G[S2]] )( implicit R: Resolver[F, G] ): F[C, G[S2]] = R.flatMap( f )( s2 )
+    def fallbackWith( fallback: F[C, G[S]] )( implicit R: Resolver[F, G] ): F[C, G[S]] = R.choose( f, fallback )
+  }
+}
 object program {
   import models._
   import resolver._
+  import syntax._
   import scalaz.syntax.std.boolean.ToBooleanOpsFromBoolean
 
   def simpleGraph[F[_, _]](
@@ -71,19 +80,20 @@ object program {
     P3: Process[State3, Response]
   ): F[Context, Option[Response]] = {
     import L._
-    val f1 = ( c: Context ) => c.dialog.isEmpty.option( State1() )
+    val f1 = ( c: Context ) => c.dialog.isEmpty.option( State1( c.users.isEmpty ) )
     val f2 = ( c: Context ) => c.dialog.nonEmpty.option( State2() )
-    val f1_3 = ( s1: State1 ) => Some( State3() )
+    val f1_3 = ( s1: State1 ) => s1.usersEmpty.option( State3() )
     val f3 = ( c: Context ) => Option.empty[State3]
 
-    val l1 = map( create( f1 ) )( P1.process )
-    val l1_3 = map( flatMap( create( f1 ) )( create( f1_3 ) ) )( P3.process )
-    val l2 = map( create( f2 ) )( P2.process )
-    val l3 = map( create( f3 ) )( P3.process )
+    val l1 = create( f1 ).map( P1.process )
+    val l1_3 = create( f1 ).flatMap( create( f1_3 ) ).map( P3.process )
+    val l2 = create( f2 ).map( P2.process )
+    val l3 = create( f3 ).map( P3.process )
 
-    val branch1 = choose( l1_3, l1 )
-    val branch2 = choose( branch1, l2 )
-    choose( branch2, l3 )
+    l1_3
+      .fallbackWith( l1 )
+      .fallbackWith( l2 )
+      .fallbackWith( l3 )
   }
 
 }
@@ -94,18 +104,26 @@ object app extends App {
   import strings._
   import states._
 
-  val context1 = Context( users, Nil )
+  val context1 = Context( Nil, Nil )
   val context2 = Context( users, messages )
+  val context3 = Context( users, Nil )
 
   //Res
   val g1Res: Option[Response] = program.simpleGraph[Res].exec( context1 )
   println( "Res1: " + g1Res ) // Some(Response(state3))
   val g2Res: Option[Response] = program.simpleGraph[Res].exec( context2 )
   println( "Res2: " + g2Res ) // Some(Response(state2))
+  val g3Res: Option[Response] = program.simpleGraph[Res].exec( context3 )
+  println( "Res3: " + g3Res ) // Some(Response(state1))
 
   //Str
   val g1Str: String = program.simpleGraph[Str].exec( context1 )
-  println( "Str1: " + g1Str ) // (((Some(State1())->Some(State3())->Some(Response(state3)) || State1()->Some(Response(state1))) || None->None) || None->None)
+  println( "Str1: " + g1Str )
+  // (((Some(State1(true))->Some(State3())->Some(Response(state3)) || State1(true)->Some(Response(state1))) || None->None) || None->None)
   val g2Str: String = program.simpleGraph[Str].exec( context2 )
-  println( "Str2: " + g2Str ) // (((None->None->None || None->None) || State2()->Some(Response(state2))) || None->None)
+  println( "Str2: " + g2Str )
+  // (((None->None->None || None->None) || State2()->Some(Response(state2))) || None->None)
+  val g3Str: String = program.simpleGraph[Str].exec( context3 )
+  println( "Str3: " + g3Str )
+  // (((Some(State1(false))->None->None || State1(false)->Some(Response(state1))) || None->None) || None->None)
 }

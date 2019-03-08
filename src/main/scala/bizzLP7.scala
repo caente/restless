@@ -50,7 +50,7 @@ object strings {
     def create[C, S]( f: C => Option[S] ) =
       Str( c => s"${f( c ).map( _.toString ).getOrElse( "None" )}", c => f( c ) )
     def map[C, S, Z]( f: Str[C, Option[S]] )( g: S => Z ) =
-      Str( c => s"(${f.exec( c )}->${f.value( c ).map( g )})", c => f.value( c ).map( g ) )
+      Str( c => s"${f.exec( c )}->${f.value( c ).map( g )}", c => f.value( c ).map( g ) )
     def choose[C, Z]( origin: Str[C, Option[Z]], fallback: Str[C, Option[Z]] ) =
       Str( c => s"(${origin.exec( c )} || ${fallback.exec( c )})", c => origin.value( c ).orElse( fallback.value( c ) ) )
     def flatMap[C, S1, S2, Z]( s1: Str[C, Option[S1]] )( s2: Str[S1, Option[S2]] ): Str[C, Option[S2]] =
@@ -98,14 +98,14 @@ object app extends App {
   val context2 = Context( users, messages )
 
   //Res
-  val g1Res = program.simpleGraph[Res].exec( context1 )
-  println( "Res1: " + g1Res ) // Some(Response(state1))
-  val g2Res = program.simpleGraph[Res].exec( context2 )
+  val g1Res: Option[Response] = program.simpleGraph[Res].exec( context1 )
+  println( "Res1: " + g1Res ) // Some(Response(state3))
+  val g2Res: Option[Response] = program.simpleGraph[Res].exec( context2 )
   println( "Res2: " + g2Res ) // Some(Response(state2))
 
   //Str
-  val g1Str = program.simpleGraph[Str].exec( context1 )
-  println( "Str1: " + g1Str ) // (State1() || (State1() || None))
-  val g2Str = program.simpleGraph[Str].exec( context2 )
-  println( "Str2: " + g2Str ) // (None || (None || State2()))
+  val g1Str: String = program.simpleGraph[Str].exec( context1 )
+  println( "Str1: " + g1Str ) // (((Some(State1())->Some(State3())->Some(Response(state3)) || State1()->Some(Response(state1))) || None->None) || None->None)
+  val g2Str: String = program.simpleGraph[Str].exec( context2 )
+  println( "Str2: " + g2Str ) // (((None->None->None || None->None) || State2()->Some(Response(state2))) || None->None)
 }

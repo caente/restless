@@ -59,7 +59,7 @@ object strings {
       )
     def choose[C, Z]( origin: Str[C, Option[Z]], fallback: Str[C, Option[Z]] ) =
       Str(
-        c => s"(${origin.exec( c )} || ${fallback.exec( c )})",
+        c => s"[${origin.exec( c )} || ${fallback.exec( c )}]",
         c => R.choose( R.create( origin.value ), R.create( fallback.value ) ).exec( c )
       )
     def flatMap[C, S1, S2, Z]( s1: Str[C, Option[S1]] )( s2: Str[S1, Option[S2]] ): Str[C, Option[S2]] =

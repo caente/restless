@@ -54,7 +54,7 @@ object strings {
       )
     def map[C, S, Z]( f: Str[C, Option[S]] )( g: S => Z ) =
       Str(
-        c => s"${f.exec( c )}->${create( ( c: C ) => f.value( c ).map( g ) ).exec( c )}",
+        c => s"${f.exec( c )}->${create( R.map( R.create( f.value ) )( g ).exec ).exec( c )}",
         c => R.map( R.create( f.value ) )( g ).exec( c )
       )
     def choose[C, Z]( origin: Str[C, Option[Z]], fallback: Str[C, Option[Z]] ) =
@@ -64,7 +64,7 @@ object strings {
       )
     def flatMap[C, S1, S2, Z]( s1: Str[C, Option[S1]] )( s2: Str[S1, Option[S2]] ): Str[C, Option[S2]] =
       Str(
-        c => s"${s1.exec( c )}->${create( ( c: C ) => s1.value( c ).flatMap( s1 => s2.value( s1 ) ) ).exec( c )}",
+        c => s"${s1.exec( c )}->${create( R.flatMap( R.create( s1.value ) )( R.create( s2.value ) ).exec ).exec( c )}",
         c => R.flatMap( R.create( s1.value ) )( R.create( s2.value ) ).exec( c )
       )
   }

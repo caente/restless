@@ -50,25 +50,25 @@ object strings {
     def create[C, S]( f: C => Option[S] ) =
       Str(
         c => s"${f( c ).map( _.toString ).getOrElse( "None" )}",
-        c => R.create( f ).exec( c )
+        R.create( f ).exec
       )
     def map[C, S, Z]( f: Str[C, Option[S]] )( g: S => Z ) = {
       val zValue: C => Option[Z] = R.map( R.create( f.value ) )( g ).exec
       Str(
         c => s"${f.exec( c )}->${create( zValue ).exec( c )}",
-        c => zValue( c )
+        zValue
       )
     }
     def choose[C, Z]( origin: Str[C, Option[Z]], fallback: Str[C, Option[Z]] ) =
       Str(
         c => s"[${origin.exec( c )} || ${fallback.exec( c )}]",
-        c => R.choose( R.create( origin.value ), R.create( fallback.value ) ).exec( c )
+        R.choose( R.create( origin.value ), R.create( fallback.value ) ).exec
       )
     def flatMap[C, S1, S2, Z]( s1: Str[C, Option[S1]] )( s2: Str[S1, Option[S2]] ): Str[C, Option[S2]] = {
       val s2Value: C => Option[S2] = R.flatMap( R.create( s1.value ) )( R.create( s2.value ) ).exec
       Str(
         c => s"${s1.exec( c )}->${create( s2Value ).exec( c )}",
-        c => s2Value( c )
+        s2Value
       )
     }
   }

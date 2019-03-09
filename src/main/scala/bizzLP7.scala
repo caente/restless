@@ -46,15 +46,18 @@ object strings {
   import models._
   import resolver._
   case class Str[C, A]( exec: C => String, value: C => A )
-  implicit object ResolverStr extends Resolver[Str, Option] {
+  implicit def ResolverStr( implicit R: Resolver[states.Res, Option] ) = new Resolver[Str, Option] {
     def create[C, S]( f: C => Option[S] ) =
-      Str( c => s"${f( c ).map( _.toString ).getOrElse( "None" )}", c => f( c ) )
+      Str( c => s"${f( c ).map( _.toString ).getOrElse( "None" )}", c => R.create( f ).exec( c ) )
     def map[C, S, Z]( f: Str[C, Option[S]] )( g: S => Z ) =
-      Str( c => s"${f.exec( c )}->${f.value( c ).map( g )}", c => f.value( c ).map( g ) )
+      Str( c => s"${f.exec( c )}->${f.value( c ).map( g )}", c => R.map( R.create( f.value ) )( g ).exec( c ) )
     def choose[C, Z]( origin: Str[C, Option[Z]], fallback: Str[C, Option[Z]] ) =
-      Str( c => s"(${origin.exec( c )} || ${fallback.exec( c )})", c => origin.value( c ).orElse( fallback.value( c ) ) )
+      Str( c => s"(${origin.exec( c )} || ${fallback.exec( c )})", c => R.choose( R.create( origin.value ), R.create( fallback.value ) ).exec( c ) )
     def flatMap[C, S1, S2, Z]( s1: Str[C, Option[S1]] )( s2: Str[S1, Option[S2]] ): Str[C, Option[S2]] =
-      Str( c => s"${s1.value( c )}->${s1.value( c ).flatMap( s1 => s2.value( s1 ) )}", c => s1.value( c ).flatMap( s1 => s2.value( s1 ) ) )
+      Str(
+        c => s"${s1.value( c )}->${s1.value( c ).flatMap( s1 => s2.value( s1 ) )}",
+        c => R.flatMap( R.create( s1.value ) )( R.create( s2.value ) ).exec( c )
+      )
   }
 }
 

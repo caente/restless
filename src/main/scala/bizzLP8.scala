@@ -25,7 +25,7 @@ object resolver {
   }
 }
 
-object states {
+object compute {
   import models._
   import resolver._
   case class Res[C, A]( exec: C => A )
@@ -46,7 +46,7 @@ object strings {
   import models._
   import resolver._
   case class Str[C, A]( exec: C => String, value: C => A )
-  implicit def ResolverStr( implicit R: Resolver[states.Res, Option] ) = new Resolver[Str, Option] {
+  implicit def ResolverStr( implicit R: Resolver[compute.Res, Option] ) = new Resolver[Str, Option] {
     def create[C, S]( f: C => Option[S] ) =
       Str(
         c => s"${f( c ).map( _.toString ).getOrElse( "None" )}",
@@ -120,7 +120,7 @@ object app extends App {
   import models._
   import models.values._
   import strings._
-  import states._
+  import compute._
 
   val context1 = Context( Nil, Nil )
   val context2 = Context( users, messages )

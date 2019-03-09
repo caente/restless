@@ -1,5 +1,7 @@
 package bizz12
 
+import syntax._
+
 trait Resolver[F[_, _], G[_]] {
   def create[C, S]( f: C => G[S] ): F[C, G[S]]
   def map[C, S, Z]( f: F[C, G[S]] )( g: S => Z ): F[C, G[Z]]
@@ -11,6 +13,12 @@ case class Res[C, A]( exec: C => A )
 case class Str[C, A]( exec: C => String, value: C => A )
 
 object Resolver {
+  def compose[F[_, _], G[_], C, S, Z]( f: C => G[S] )( g: S => Z )( implicit R: Resolver[F, G] ) =
+    R.create( f ).map( g )
+
+  def composeG[F[_, _], G[_], C, S1, S2, Z]( s1: C => G[S1], s2: S1 => G[S2] )( implicit R: Resolver[F, G] ) =
+    R.create( s1 ).flatMap( R.create( s2 ) )
+
   implicit object ResolverRes extends Resolver[Res, Option] {
     def create[C, S]( f: C => Option[S] ) =
       Res( f )
@@ -21,6 +29,7 @@ object Resolver {
     def flatMap[C, S1, S2, Z]( s1: Res[C, Option[S1]] )( s2: Res[S1, Option[S2]] ): Res[C, Option[S2]] =
       Res( c => s1.exec( c ).flatMap( s1 => s2.exec( s1 ) ) )
   }
+
   implicit def ResolverStr( implicit R: Resolver[Res, Option] ) = new Resolver[Str, Option] {
     def create[C, S]( f: C => Option[S] ) =
       Str(
@@ -28,10 +37,9 @@ object Resolver {
         R.create( f ).exec
       )
     def map[C, S, Z]( f: Str[C, Option[S]] )( g: S => Z ) = {
-      val zValue: C => Option[Z] = R.map( R.create( f.value ) )( g ).exec
       Str(
-        c => s"${f.exec( c )}->${create( zValue ).exec( c )}",
-        zValue
+        c => s"${f.exec( c )}->${create( compose( f.value )( g ).exec ).exec( c )}",
+        compose( f.value )( g ).exec
       )
     }
     def choose[C, Z]( origin: Str[C, Option[Z]], fallback: Str[C, Option[Z]] ) =
@@ -40,10 +48,9 @@ object Resolver {
         R.choose( R.create( origin.value ), R.create( fallback.value ) ).exec
       )
     def flatMap[C, S1, S2, Z]( s1: Str[C, Option[S1]] )( s2: Str[S1, Option[S2]] ): Str[C, Option[S2]] = {
-      val s2Value: C => Option[S2] = R.flatMap( R.create( s1.value ) )( R.create( s2.value ) ).exec
       Str(
-        c => s"${s1.exec( c )}->${create( s2Value ).exec( c )}",
-        s2Value
+        c => s"${s1.exec( c )}->${create( composeG( s1.value, s2.value ).exec ).exec( c )}",
+        composeG( s1.value, s2.value ).exec
       )
     }
   }
@@ -67,18 +74,17 @@ object Process {
 
 object syntax {
   implicit class ResolverSyntax[F[_, _], G[_], C, S]( f: F[C, G[S]] ) {
-    def map[Z]( g: S => Z )( implicit R: Resolver[F, G] ): F[C, G[Z]] = 
+    def map[Z]( g: S => Z )( implicit R: Resolver[F, G] ): F[C, G[Z]] =
       R.map( f )( g )
-    def flatMap[S2, Z]( s2: F[S, G[S2]] )( implicit R: Resolver[F, G] ): F[C, G[S2]] = 
+    def flatMap[S2, Z]( s2: F[S, G[S2]] )( implicit R: Resolver[F, G] ): F[C, G[S2]] =
       R.flatMap( f )( s2 )
-    def fallbackWith( fallback: F[C, G[S]] )( implicit R: Resolver[F, G] ): F[C, G[S]] = 
+    def fallbackWith( fallback: F[C, G[S]] )( implicit R: Resolver[F, G] ): F[C, G[S]] =
       R.choose( f, fallback )
   }
 }
 
 object program {
   import models._
-  import syntax._
   import scalaz.syntax.std.boolean.ToBooleanOpsFromBoolean
 
   def simpleGraph[F[_, _]](

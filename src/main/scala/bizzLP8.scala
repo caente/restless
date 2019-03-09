@@ -1,34 +1,16 @@
 package bizz12
 
-object resolver {
-  trait Resolver[F[_, _], G[_]] {
-    def create[C, S]( f: C => G[S] ): F[C, G[S]]
-    def map[C, S, Z]( f: F[C, G[S]] )( g: S => Z ): F[C, G[Z]]
-    def flatMap[C, S1, S2, Z]( s1: F[C, G[S1]] )( s2: F[S1, G[S2]] ): F[C, G[S2]]
-    def choose[C, Z]( origin: F[C, G[Z]], fallback: F[C, G[Z]] ): F[C, G[Z]]
-  }
-  trait Process[A, R] {
-    def process: A => R
-  }
-
-  object Process {
-    import models._
-    implicit object process1 extends Process[State1, Response] {
-      def process = s => Response( "state1" )
-    }
-    implicit object process2 extends Process[State2, Response] {
-      def process = s => Response( "state2" )
-    }
-    implicit object process3 extends Process[State3, Response] {
-      def process = s => Response( "state3" )
-    }
-  }
+trait Resolver[F[_, _], G[_]] {
+  def create[C, S]( f: C => G[S] ): F[C, G[S]]
+  def map[C, S, Z]( f: F[C, G[S]] )( g: S => Z ): F[C, G[Z]]
+  def flatMap[C, S1, S2, Z]( s1: F[C, G[S1]] )( s2: F[S1, G[S2]] ): F[C, G[S2]]
+  def choose[C, Z]( origin: F[C, G[Z]], fallback: F[C, G[Z]] ): F[C, G[Z]]
 }
 
-object compute {
-  import models._
-  import resolver._
-  case class Res[C, A]( exec: C => A )
+case class Res[C, A]( exec: C => A )
+case class Str[C, A]( exec: C => String, value: C => A )
+
+object Resolver {
   implicit object ResolverRes extends Resolver[Res, Option] {
     def create[C, S]( f: C => Option[S] ) =
       Res( f )
@@ -39,14 +21,7 @@ object compute {
     def flatMap[C, S1, S2, Z]( s1: Res[C, Option[S1]] )( s2: Res[S1, Option[S2]] ): Res[C, Option[S2]] =
       Res( c => s1.exec( c ).flatMap( s1 => s2.exec( s1 ) ) )
   }
-
-}
-
-object strings {
-  import models._
-  import resolver._
-  case class Str[C, A]( exec: C => String, value: C => A )
-  implicit def ResolverStr( implicit R: Resolver[compute.Res, Option] ) = new Resolver[Str, Option] {
+  implicit def ResolverStr( implicit R: Resolver[Res, Option] ) = new Resolver[Str, Option] {
     def create[C, S]( f: C => Option[S] ) =
       Str(
         c => s"${f( c ).map( _.toString ).getOrElse( "None" )}",
@@ -73,9 +48,24 @@ object strings {
     }
   }
 }
+trait Process[A, R] {
+  def process: A => R
+}
+
+object Process {
+  import models._
+  implicit object process1 extends Process[State1, Response] {
+    def process = s => Response( "state1" )
+  }
+  implicit object process2 extends Process[State2, Response] {
+    def process = s => Response( "state2" )
+  }
+  implicit object process3 extends Process[State3, Response] {
+    def process = s => Response( "state3" )
+  }
+}
 
 object syntax {
-  import resolver._
   implicit class ResolverSyntax[F[_, _], G[_], C, S]( f: F[C, G[S]] ) {
     def map[Z]( g: S => Z )( implicit R: Resolver[F, G] ): F[C, G[Z]] = R.map( f )( g )
     def flatMap[S2, Z]( s2: F[S, G[S2]] )( implicit R: Resolver[F, G] ): F[C, G[S2]] = R.flatMap( f )( s2 )
@@ -84,7 +74,6 @@ object syntax {
 }
 object program {
   import models._
-  import resolver._
   import syntax._
   import scalaz.syntax.std.boolean.ToBooleanOpsFromBoolean
 
@@ -119,8 +108,6 @@ object program {
 object app extends App {
   import models._
   import models.values._
-  import strings._
-  import compute._
 
   val context1 = Context( Nil, Nil )
   val context2 = Context( users, messages )

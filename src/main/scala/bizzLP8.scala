@@ -78,7 +78,7 @@ object syntax {
       R.map( f )( g )
     def flatMap[S2, Z]( s2: F[S, G[S2]] )( implicit R: Resolver[F, G] ): F[C, G[S2]] =
       R.flatMap( f )( s2 )
-    def fallbackWith( fallback: F[C, G[S]] )( implicit R: Resolver[F, G] ): F[C, G[S]] =
+    def oElse( fallback: F[C, G[S]] )( implicit R: Resolver[F, G] ): F[C, G[S]] =
       R.choose( f, fallback )
   }
 }
@@ -103,14 +103,12 @@ object program {
     val l1 = create( f1 ).map( P1.process )
     val l1_3 = create( f1 ).flatMap( create( f1_3 ) ).map( P3.process )
     val l2 = create( f2 ).map( P2.process )
-    val l3 = create( f3 ).map( P3.process )
     //all lx are of the same type F[Context,Option[Response]]
     //the below can be combined in any way, e.g.
-    //l1_3.fallbackWith( l1.fallbackWith( l2.fallbackWith( l3 ) ) )
+    //l1_3.oElse( l1.oElse( l2 ) )
     l1_3
-      .fallbackWith( l1 )
-      .fallbackWith( l2 )
-      .fallbackWith( l3 )
+      .oElse( l1 )
+      .oElse( l2 )
   }
 
 }
@@ -134,11 +132,12 @@ object app extends App {
   //Str
   val g1Str: String = program.simpleGraph[Str].exec( context1 )
   println( "Str1: " + g1Str )
-  // [[[State1(true)->State3()->Response(state3) || State1(true)->Response(state1)] || None->None] || None->None]
+  // [[State1(true)->State3()->Response(state3) || State1(true)->Response(state1)] || None->None]
   val g2Str: String = program.simpleGraph[Str].exec( context2 )
   println( "Str2: " + g2Str )
-  // [[[None->None->None || None->None] || State2()->Response(state2)] || None->None]
+  // [[None->None->None || None->None] || State2()->Response(state2)]
   val g3Str: String = program.simpleGraph[Str].exec( context3 )
   println( "Str3: " + g3Str )
-  // [[[State1(false)->None->None || State1(false)->Response(state1)] || None->None] || None->None]
+  // [[State1(false)->None->None || State1(false)->Response(state1)] || None->None]
+
 }

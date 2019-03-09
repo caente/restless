@@ -13,10 +13,10 @@ case class Res[C, A]( exec: C => A )
 case class Str[C, A]( exec: C => String, value: C => A )
 
 object Resolver {
-  def compose[F[_, _], G[_], C, S, Z]( f: C => G[S] )( g: S => Z )( implicit R: Resolver[F, G] ) =
+  def Composed[F[_, _], G[_], C, S, Z]( f: C => G[S], g: S => Z )( implicit R: Resolver[F, G] ) =
     R.create( f ).map( g )
 
-  def composeG[F[_, _], G[_], C, S1, S2, Z]( s1: C => G[S1], s2: S1 => G[S2] )( implicit R: Resolver[F, G] ) =
+  def Flatten[F[_, _], G[_], C, S1, S2, Z]( s1: C => G[S1], s2: S1 => G[S2] )( implicit R: Resolver[F, G] ) =
     R.create( s1 ).flatMap( R.create( s2 ) )
 
   implicit object ResolverRes extends Resolver[Res, Option] {
@@ -38,8 +38,8 @@ object Resolver {
       )
     def map[C, S, Z]( f: Str[C, Option[S]] )( g: S => Z ) = {
       Str(
-        c => s"${f.exec( c )}->${create( compose( f.value )( g ).exec ).exec( c )}",
-        compose( f.value )( g ).exec
+        c => s"${f.exec( c )}->${create( Composed( f.value, g ).exec ).exec( c )}",
+        Composed( f.value, g ).exec
       )
     }
     def choose[C, Z]( origin: Str[C, Option[Z]], fallback: Str[C, Option[Z]] ) =
@@ -49,8 +49,8 @@ object Resolver {
       )
     def flatMap[C, S1, S2, Z]( s1: Str[C, Option[S1]] )( s2: Str[S1, Option[S2]] ): Str[C, Option[S2]] = {
       Str(
-        c => s"${s1.exec( c )}->${create( composeG( s1.value, s2.value ).exec ).exec( c )}",
-        composeG( s1.value, s2.value ).exec
+        c => s"${s1.exec( c )}->${create( Flatten( s1.value, s2.value ).exec ).exec( c )}",
+        Flatten( s1.value, s2.value ).exec
       )
     }
   }

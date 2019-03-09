@@ -137,11 +137,11 @@ object app extends App {
   //Str
   val g1Str: String = program.simpleGraph[Str].exec( context1 )
   println( "Str1: " + g1Str )
-  // (((State1(true)->State3()->Response(state3) || State1(true)->Response(state1)) || None->None) || None->None)
+  // [[[State1(true)->State3()->Response(state3) || State1(true)->Response(state1)] || None->None] || None->None]
   val g2Str: String = program.simpleGraph[Str].exec( context2 )
   println( "Str2: " + g2Str )
-  // (((None->None->None || None->None) || State2()->Response(state2)) || None->None)
+  // [[[None->None->None || None->None] || State2()->Response(state2)] || None->None]
   val g3Str: String = program.simpleGraph[Str].exec( context3 )
   println( "Str3: " + g3Str )
-  // (((State1(false)->None->None || State1(false)->Response(state1)) || None->None) || None->None)
+  // [[[State1(false)->None->None || State1(false)->Response(state1)] || None->None] || None->None]
 }

@@ -67,11 +67,15 @@ object Process {
 
 object syntax {
   implicit class ResolverSyntax[F[_, _], G[_], C, S]( f: F[C, G[S]] ) {
-    def map[Z]( g: S => Z )( implicit R: Resolver[F, G] ): F[C, G[Z]] = R.map( f )( g )
-    def flatMap[S2, Z]( s2: F[S, G[S2]] )( implicit R: Resolver[F, G] ): F[C, G[S2]] = R.flatMap( f )( s2 )
-    def fallbackWith( fallback: F[C, G[S]] )( implicit R: Resolver[F, G] ): F[C, G[S]] = R.choose( f, fallback )
+    def map[Z]( g: S => Z )( implicit R: Resolver[F, G] ): F[C, G[Z]] =
+      R.map( f )( g )
+    def flatMap[S2, Z]( s2: F[S, G[S2]] )( implicit R: Resolver[F, G] ): F[C, G[S2]] =
+      R.flatMap( f )( s2 )
+    def fallbackWith( fallback: F[C, G[S]] )( implicit R: Resolver[F, G] ): F[C, G[S]] =
+      R.choose( f, fallback )
   }
 }
+
 object program {
   import models._
   import syntax._

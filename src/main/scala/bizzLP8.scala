@@ -13,11 +13,11 @@ case class Res[C, A]( exec: C => A )
 case class Str[C, A]( exec: C => String, value: C => A )
 
 object Resolver {
-  def Composed[F[_, _], G[_], C, S, Z]( f: C => G[S], g: S => Z )( implicit R: Resolver[F, G] ) =
+  def Mapped[F[_, _], G[_], C, S, Z]( f: C => G[S], g: S => Z )( implicit R: Resolver[F, G] ) =
     R.create( f ).map( g )
 
   def Flatten[F[_, _], G[_], C, S1, S2, Z]( s1: C => G[S1], s2: S1 => G[S2] )( implicit R: Resolver[F, G] ) =
-    R.create( s1 ).flatMap( R.create( s2 ) )
+    R.create( s1 ).andThen( R.create( s2 ) )
 
   implicit object ResolverRes extends Resolver[Res, Option] {
     def create[C, S]( f: C => Option[S] ) =
@@ -38,8 +38,8 @@ object Resolver {
       )
     def map[C, S, Z]( f: Str[C, Option[S]] )( g: S => Z ) = {
       Str(
-        c => s"${f.exec( c )}->${create( Composed( f.value, g ).exec ).exec( c )}",
-        Composed( f.value, g ).exec
+        c => s"${f.exec( c )}->${create( Mapped( f.value, g ).exec ).exec( c )}",
+        Mapped( f.value, g ).exec
       )
     }
     def choose[C, Z]( origin: Str[C, Option[Z]], fallback: Str[C, Option[Z]] ) =
@@ -76,7 +76,7 @@ object syntax {
   implicit class ResolverSyntax[F[_, _], G[_], C, S]( f: F[C, G[S]] ) {
     def map[Z]( g: S => Z )( implicit R: Resolver[F, G] ): F[C, G[Z]] =
       R.map( f )( g )
-    def flatMap[S2, Z]( s2: F[S, G[S2]] )( implicit R: Resolver[F, G] ): F[C, G[S2]] =
+    def andThen[S2, Z]( s2: F[S, G[S2]] )( implicit R: Resolver[F, G] ): F[C, G[S2]] =
       R.flatMap( f )( s2 )
     def oElse( fallback: F[C, G[S]] )( implicit R: Resolver[F, G] ): F[C, G[S]] =
       R.choose( f, fallback )
@@ -101,7 +101,7 @@ object program {
     val f3 = ( c: Context ) => Option.empty[State3]
 
     val l1 = create( f1 ).map( P1.process )
-    val l1_3 = create( f1 ).flatMap( create( f1_3 ) ).map( P3.process )
+    val l1_3 = create( f1 ).andThen( create( f1_3 ) ).map( P3.process )
     val l2 = create( f2 ).map( P2.process )
     //all lx are of the same type F[Context,Option[Response]]
     //the below can be combined in any way, e.g.
